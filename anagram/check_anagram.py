@@ -1,9 +1,21 @@
 
 import re
 
+def singleton(cls):    
+    instance = [None]
+    def wrapper(*args, **kwargs):
+        if instance[0] is None:
+            instance[0] = cls(*args, **kwargs)
+        return instance[0]
+
+    return wrapper
+    
+@singleton    
 class AnagramChecker():
     IS = "is"
     IS_NOT = "is not"
+    def __init__(self):
+        print("Created!")
     def CheckIsAnagram(self, string_1, string_2):
         if not self.__is_valid_string(string_1) or not self.__is_valid_string(string_2):
             return self.IS_NOT
@@ -25,4 +37,3 @@ class AnagramChecker():
 
     def __sort_string(self, string):
         return ''.join(sorted(string))
-
