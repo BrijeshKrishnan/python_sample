@@ -76,4 +76,12 @@ Mutation testing commands:
 mutmut run
 mutmut show
 
+behave execution command
+========================
+behave --no-capture
+reporting: behave -f allure_behave.formatter:AllureFormatter -o .\report\ ./features
+
+allure serve C:\Projects\PythonRepo\python_sample\anagram\results
+
+
 
