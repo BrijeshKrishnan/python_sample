@@ -1,21 +1,27 @@
 # importing libraries 
 import time 
 import math 
+
 # decorator for logger 
 # taken by any function. 
+
 def my_logger(func):
     # added arguments inside the inner1, 
     # if function takes any arguments, 
     # can be added like this. 
-    def inner1(*args, **kwargs): 
-        print("******************")
-        print("Enter func "+func.__name__)
+    file = open("automation.log","a") 
+    file.write
+    def inner1( *args, **kwargs): 
+        file.write("*****************************\n")
+        file.write("Enter func  "+func.__name__)
         # storing time before function execution 
         begin = time.time() 
-        print ("Start time: %s"%begin)
+        file.write ("\nStart time: %s"%begin)
         func(*args, **kwargs) 
         # storing time after function execution 
         end = time.time() 
-        print ("END time: %s"%end)
-        print("Execution time : ", func.__name__, end - begin) 
+        file.write ("\nEND time: %s"%end)
+        file.write("\nExecution time : %s %s" %(func.__name__, end - begin)) 
+        file.write("\n*****************************\n")
+        file.close()
     return inner1 
