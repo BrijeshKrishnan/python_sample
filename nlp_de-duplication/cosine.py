@@ -2,9 +2,12 @@ import re, math
 from collections import Counter
 from tkinter import *
 from tkinter import filedialog
+from collections import defaultdict
 # Reading an excel file using Python 
-import xlrd 
+import xlrd
+import sys
 WORD = re.compile(r'\w+')
+import xlsxwriter 
 # Give the location of the file 
 ROW_SPACER = 25
 class MyWindow:
@@ -31,19 +34,15 @@ class MyWindow:
         self.tc_id_t.place(x=200, y= ROW_SPACER*3)
         self.tc_id_t.delete(0, END)
 
-        self.ts_id=Label(win, text="TestCase Steps Index")
+        self.ts_id=Label(win, text="Column of interest")
         self.ts_id.place(x=10, y= ROW_SPACER*4)
         self.ts_id_t = Entry(win, width=10)
         self.ts_id_t.place(x=200, y= ROW_SPACER*4)
         self.ts_id_t.delete(0, END)
 
-        # self.te_id=Label(win, text="TestCase Expected Index")
-        # self.te_id.place(x=10, y= ROW_SPACER*5)
-        # self.te_id_t = Entry(win, width=10)
-        # self.te_id_t.place(x=200, y= ROW_SPACER*5)
-        # self.te_id_t.delete(0, END)
         self.submit=Button(win, text ="Process", command = self.submit)
         self.submit.place(x=250, y= ROW_SPACER*7)
+        self.row_merge_dict =defaultdict(str)
         
 
     def browsefunc(self):
@@ -60,7 +59,8 @@ class MyWindow:
     def submit(self):        
         try:
             self.validate_input()
-            # self.process_file()
+            self.process_file()
+            self.create_temp_file()
             self.process_cosine()
         except:
             print('Error')
@@ -93,41 +93,89 @@ class MyWindow:
              file.write("Testcase ID,Duplicates\n")
         else:
             file.write("Testcase ID,Potential Merge\n")
-        wb = xlrd.open_workbook(self.path_t.get()) 
+        wb = xlrd.open_workbook("C:\\SimilarityIndexProcessor\\temp.xlsx") 
+
         sheet = wb.sheet_by_index(0) 
         for i in range(1, sheet.nrows):
-            test_case_id = sheet.cell_value(i, int(self.tc_id_t.get())) 
-            master_text = sheet.cell_value(i, int(self.ts_id_t.get())) 
+            test_case_id = sheet.cell_value(i, 0) 
+            master_text = sheet.cell_value(i, 1) 
             vector1 = self.text_to_vector(str(master_text))
             for j in range (i+1, sheet.nrows):
-                match_text = sheet.cell_value(j, int(self.ts_id_t.get()))
+                match_text = sheet.cell_value(j, 1)
                 vector2 = self.text_to_vector(str(match_text))
                 cosine = self.get_cosine(vector1, vector2)
                 if self.check_tolarance(cosine*100, int(self.sin_index_t.get())):
                     print(cosine*100)
-                    file.write(str(test_case_id)+","+str(sheet.cell_value(j, int(self.tc_id_t.get())))+"\n")
-def process_file():
-    wb = xlrd.open_workbook("C:\\Projects\\PythonRepo\\python_sample\\nlp\\sample.xlsx") 
-    sheet = wb.sheet_by_index(0) 
-    for i in range(1, sheet.nrows):
-        row_to_merge = 1
-        print("i=%s"%i)
-        # print(sheet.cell_value(i,0))
-        for j in range(i+1, sheet.nrows):
-            if (sheet.cell_value(i,0) == sheet.cell_value(j,0) or (sheet.cell_value(j,0) is "")):
-                row_to_merge+=1
+                    file.write(str(test_case_id)+","+str(sheet.cell_value(j, 0))+"\n")
+
+    def get_tc_id(self, row_num, sheet):
+        return str(sheet.cell_value(row_num, int(self.tc_id_t.get())))
+    def create_temp_file(self):
+        workbook = xlsxwriter.Workbook("C:\\SimilarityIndexProcessor\\temp.xlsx") 
+        worksheet = workbook.add_worksheet() 
+        xls_row = 1
+        worksheet.write(0, 0, "Testcase ID") 
+        worksheet.write(0, 1, "Merged_Steps")
+        wb = xlrd.open_workbook(self.path_t.get())
+        sheet = wb.sheet_by_index(0)
+        int_colum = (str(self.ts_id_t.get())).split(",")
+        skip_count = 0
+        for i in range(1,sheet.nrows):
+            processed_text = ''
+            id = self.get_tc_id(i, sheet)
+            if skip_count:
+                skip_count-=1
+                continue
+            if ((self.row_merge_dict[id] > 1)):
+                worksheet.write(xls_row, 0, "%s"%str(id)) 
+                for row in range (i, i+self.row_merge_dict[id]):
+                    skip_count = int(self.row_merge_dict[id])-1
+                    for j in int_colum:
+                        processed_text += sheet.cell_value(row, int(j))
+                worksheet.write(xls_row, 1, "%s"%str(processed_text)) 
+               
             else:
-                print(row_to_merge)
-                print("j=%s"%(j-1))
-                print("*************")
-                i=j-1
-                break
+                worksheet.write(xls_row, 0, "%s"%str(id)) 
+                for j in int_colum:
+                    processed_text += sheet.cell_value(i, int(j))
+                worksheet.write(xls_row, 1, "%s"%str(processed_text)) 
+            xls_row+=1
+            print("row=%s"%xls_row)
+        workbook.close()
 
-
+    def process_file(self):
+        wb = xlrd.open_workbook(self.path_t.get())
+        sheet = wb.sheet_by_index(0)
+        jump_flag = None
+        row_to_merge = 1
+        for i in range(1,sheet.nrows):
+            if (row_to_merge> 1):
+                if (jump_flag):            
+                        row_to_merge-=1
+                        continue
+                if (not row_to_merge):
+                    jump_flag = 0
+                    row_to_merge = 1
+            self.row_merge_dict[str(sheet.cell_value(i,0))]=1
+            for j in range(i+1, sheet.nrows):
+                if not (sheet.cell_value(j,int(self.tc_id_t.get())) == ''):
+                    if (str(sheet.cell_value(i,int(self.tc_id_t.get()))) == str(sheet.cell_value(j,int(self.tc_id_t.get())))):
+                        row_to_merge=row_to_merge+1
+                        jump_flag = 1
+                        self.row_merge_dict[str(sheet.cell_value(i,int(self.tc_id_t.get())))]=row_to_merge
+                        continue
+                    else:
+                        break
+                else:
+                    row_to_merge=row_to_merge+1
+                    jump_flag = 1
+                    self.row_merge_dict[str(sheet.cell_value(i,int(self.tc_id_t.get())))]=row_to_merge
+                    continue
+        print(self.row_merge_dict)
+        return self.row_merge_dict
 
 window=Tk()
 mywin=MyWindow(window)
 window.title('Text Similarity Index Processor')
 window.geometry("550x250+10+10")
 window.mainloop()
-# process_file()
